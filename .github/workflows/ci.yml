@@ -27,6 +27,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build workspace packages (turbo, deps-first)
+        # Required so per-package typecheck/test below can resolve the
+        # workspace-internal types (@liqai/ai, @liqai/uniswap,
+        # @liqai/automation). The package.json files declare types via
+        # `./dist/index.d.ts`, so without dist/ the importer typecheck
+        # cannot resolve the type declarations.
+        run: npm run build
+
       - name: Typecheck @liqai/ai
         run: cd packages/ai && npx tsc -p tsconfig.json --noEmit
 
@@ -195,14 +203,30 @@ jobs:
           fi
           echo "No private-key-like literals found in v2 tree (excluding all-zero sentinel + test fixtures)."
 
-      - name: Scan for forbidden OPERATOR_PRIVATE_KEY pattern outside archive
+      - name: Scan for forbidden OPERATOR_PRIVATE_KEY pattern in source code
         run: |
           set -e
-          MATCHES=$(git ls-files -- . ':!archive' | xargs grep -HIn 'OPERATOR_PRIVATE_KEY' 2>/dev/null || true)
+          # Permitted mentions (excluded from this scan):
+          #   - .env.example: public template, comment warns users not to add this
+          #   - .github/**: this workflow itself contains the string as the grep target
+          #   - docs/**, *.md: security policy + changelog documentation legitimately
+          #     reference the forbidden pattern by name
+          # The scan should only flag actual usage in source code where the pattern
+          # would be a real v1-era regression.
+          MATCHES=$(git ls-files \
+            -- . \
+              ':!archive' \
+              ':!.env.example' \
+              ':!.github/**' \
+              ':!docs/**' \
+              ':!*.md' \
+              ':!**/*.md' \
+            | xargs grep -HIn 'OPERATOR_PRIVATE_KEY' 2>/dev/null || true)
           if [ -n "$MATCHES" ]; then
-            echo "Forbidden pattern OPERATOR_PRIVATE_KEY found in v2 tree:"
+            echo "Forbidden pattern OPERATOR_PRIVATE_KEY found in v2 source code:"
             echo "$MATCHES"
-            echo "See docs/security-v2.md §S1.1 — v2 has no operator keys."
+            echo "See docs/security-v2.md §S1 — v2 has no operator keys."
             exit 1
           fi
+          echo "No OPERATOR_PRIVATE_KEY references in v2 source code."
           echo "No OPERATOR_PRIVATE_KEY references in v2 tree."
