@@ -166,16 +166,34 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Scan for private keys (64 hex char literals) outside archive
+      - name: Scan for private keys (64 hex char literals) outside archive + tests
         run: |
           set -e
-          MATCHES=$(git ls-files -- . ':!archive' ':!package-lock.json' ':!**/package-lock.json' | xargs -I{} grep -HIEn '0x[a-fA-F0-9]{64}([^a-fA-F0-9]|$)' {} 2>/dev/null || true)
+          # Phase 4.4 introduced two legitimate non-secret 64-hex patterns we
+          # must NOT flag:
+          #   1. The all-zero sentinel (0x000…000) used as install_tx_hash
+          #      placeholder for the lazy on-chain validator install design.
+          #   2. Synthetic test fixtures in __tests__/ and test/ directories
+          #      (e.g., POLICY_HASH dummy 0xabcdef… and EXAMPLE_PRIVATE_KEY_SHAPE
+          #      0x1111… in auditMetadata.test.ts) that intentionally have the
+          #      private-key shape so they exercise the Zod metadata guard.
+          # Both are documented in docs/CHANGELOG-security.md Learnings #8.
+          MATCHES=$(git ls-files \
+            -- . \
+              ':!archive' \
+              ':!package-lock.json' \
+              ':!**/package-lock.json' \
+              ':!**/__tests__/**' \
+              ':!**/test/**' \
+            | xargs -I{} grep -HIEn '0x[a-fA-F0-9]{64}([^a-fA-F0-9]|$)' {} 2>/dev/null \
+            | grep -v '0x0000000000000000000000000000000000000000000000000000000000000000' \
+            || true)
           if [ -n "$MATCHES" ]; then
-            echo "Potential private key literals found outside archive:"
+            echo "Potential private key literals found outside archive + tests:"
             echo "$MATCHES"
             exit 1
           fi
-          echo "No private-key-like literals found in v2 tree."
+          echo "No private-key-like literals found in v2 tree (excluding all-zero sentinel + test fixtures)."
 
       - name: Scan for forbidden OPERATOR_PRIVATE_KEY pattern outside archive
         run: |
