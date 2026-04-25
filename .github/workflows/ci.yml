@@ -1,0 +1,190 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+
+permissions:
+  contents: read
+
+jobs:
+  packages:
+    name: Core packages (AI / Uniswap / Automation)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck @liqai/ai
+        run: cd packages/ai && npx tsc -p tsconfig.json --noEmit
+
+      - name: Test @liqai/ai
+        run: cd packages/ai && npx vitest run
+
+      - name: Typecheck @liqai/uniswap
+        run: cd packages/uniswap && npx tsc -p tsconfig.json --noEmit
+
+      - name: Test @liqai/uniswap
+        run: cd packages/uniswap && npx vitest run
+
+      - name: Typecheck @liqai/automation
+        run: cd packages/automation && npx tsc -p tsconfig.json --noEmit
+
+      - name: Test @liqai/automation
+        run: cd packages/automation && npx vitest run
+
+      - name: Typecheck @liqai/desktop
+        run: cd apps/desktop && npx tsc -p tsconfig.json --noEmit
+
+      - name: Test @liqai/desktop (security-critical lib tests)
+        run: cd apps/desktop && npx vitest run
+
+      - name: React hooks exhaustive-deps (Phase 4.2 complement — Q2 incident guard)
+        # Added 2026-04-23 after the Phase-5 Stage-1 handleGenerate stale-closure
+        # incident. The Q1 remediation introduced saAddress as a dependency of
+        # SessionKeyPanel.handleGenerate but the useCallback deps array was not
+        # updated, producing a stale closure that made the button permanently
+        # unusable on mainnet. react-hooks/exhaustive-deps at "error" catches
+        # the same class of bug at CI time. See docs/CHANGELOG-security.md
+        # Learnings item #6.
+        run: cd apps/desktop && npm run lint:hooks
+
+  session-key-policy-guard:
+    name: Session-key policy must enforce recipient + amount constraints
+    runs-on: ubuntu-latest
+    # Phase 4.2 (Q1 remediation). Guards against a PR silently relaxing
+    # the CallPolicy rules introduced in commit 'Phase 3'. If anyone ever
+    # removes the recipient pin on mint/collect or the amount cap on
+    # approve, this job fails loudly BEFORE merge.
+    #
+    # This is a regex-grep belt-and-suspenders check. The Phase 2a unit
+    # tests (exploit/regression) are the primary enforcement — they fail
+    # with rich diagnostics if a permission's rules array is wrong. This
+    # job adds a second line of defence that doesn't require the test
+    # harness to execute (guards against somebody disabling the tests).
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Policy file must import caps from constants/sessionKeyLimits
+        run: |
+          set -e
+          F="apps/desktop/src/lib/sessionKeyPolicy.ts"
+          if ! grep -q "from './constants/sessionKeyLimits'" "$F"; then
+            echo "ERROR: $F no longer imports caps from ./constants/sessionKeyLimits"
+            echo "See docs/security-investigation-q1.md — the caps MUST live"
+            echo "in a dedicated audit-friendly file so reviewers can find them."
+            exit 1
+          fi
+
+      - name: mint permission must pin recipient via offset constant
+        run: |
+          set -e
+          F="apps/desktop/src/lib/sessionKeyPolicy.ts"
+          if ! grep -q 'MINT_RECIPIENT_OFFSET = 288' "$F"; then
+            echo "ERROR: $F no longer declares MINT_RECIPIENT_OFFSET = 288"
+            echo "mint((MintParams)).recipient is at byte offset 288 in the"
+            echo "encoded calldata (10th field of a flat 11-field tuple)."
+            echo "A leaked session key with no recipient pin can drain the SA."
+            exit 1
+          fi
+          if ! grep -q "offset: MINT_RECIPIENT_OFFSET" "$F"; then
+            echo "ERROR: $F no longer uses MINT_RECIPIENT_OFFSET in a rule"
+            exit 1
+          fi
+
+      - name: collect permission must pin recipient via offset constant
+        run: |
+          set -e
+          F="apps/desktop/src/lib/sessionKeyPolicy.ts"
+          if ! grep -q 'COLLECT_RECIPIENT_OFFSET = 32' "$F"; then
+            echo "ERROR: $F no longer declares COLLECT_RECIPIENT_OFFSET = 32"
+            exit 1
+          fi
+          if ! grep -q "offset: COLLECT_RECIPIENT_OFFSET" "$F"; then
+            echo "ERROR: $F no longer uses COLLECT_RECIPIENT_OFFSET in a rule"
+            exit 1
+          fi
+
+      - name: approve permissions must cap amount via LESS_THAN_OR_EQUAL
+        run: |
+          set -e
+          F="apps/desktop/src/lib/sessionKeyPolicy.ts"
+          # APPROVE_AMOUNT_OFFSET must be declared and used
+          if ! grep -q 'APPROVE_AMOUNT_OFFSET = 32' "$F"; then
+            echo "ERROR: $F no longer declares APPROVE_AMOUNT_OFFSET = 32"
+            exit 1
+          fi
+          if ! grep -q 'LESS_THAN_OR_EQUAL' "$F"; then
+            echo "ERROR: $F no longer uses LESS_THAN_OR_EQUAL — approve amount cap removed?"
+            exit 1
+          fi
+          # Both caps must be referenced
+          if ! grep -q 'MAX_APPROVE_AMOUNT_USDC' "$F"; then
+            echo "ERROR: $F no longer references MAX_APPROVE_AMOUNT_USDC"
+            exit 1
+          fi
+          if ! grep -q 'MAX_APPROVE_AMOUNT_WETH' "$F"; then
+            echo "ERROR: $F no longer references MAX_APPROVE_AMOUNT_WETH"
+            exit 1
+          fi
+
+      - name: sessionKeyGuard (off-chain second line of defence) must be imported by rebalanceExecutor
+        run: |
+          set -e
+          F="apps/desktop/src/lib/rebalanceExecutor.ts"
+          if ! grep -q "from './sessionKeyGuard'" "$F"; then
+            echo "ERROR: $F no longer imports sessionKeyGuard"
+            echo "The off-chain pre-validation hook is a required defence-in-depth"
+            echo "check before every session-key userOp. See docs/security-v2.md."
+            exit 1
+          fi
+          if ! grep -q 'assertCallsSafe' "$F"; then
+            echo "ERROR: $F no longer calls assertCallsSafe"
+            exit 1
+          fi
+
+      - name: Success
+        run: echo "Session-key policy invariants verified."
+
+  secret-scan:
+    name: Forbid committed secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan for private keys (64 hex char literals) outside archive
+        run: |
+          set -e
+          MATCHES=$(git ls-files -- . ':!archive' ':!package-lock.json' ':!**/package-lock.json' | xargs -I{} grep -HIEn '0x[a-fA-F0-9]{64}([^a-fA-F0-9]|$)' {} 2>/dev/null || true)
+          if [ -n "$MATCHES" ]; then
+            echo "Potential private key literals found outside archive:"
+            echo "$MATCHES"
+            exit 1
+          fi
+          echo "No private-key-like literals found in v2 tree."
+
+      - name: Scan for forbidden OPERATOR_PRIVATE_KEY pattern outside archive
+        run: |
+          set -e
+          MATCHES=$(git ls-files -- . ':!archive' | xargs grep -HIn 'OPERATOR_PRIVATE_KEY' 2>/dev/null || true)
+          if [ -n "$MATCHES" ]; then
+            echo "Forbidden pattern OPERATOR_PRIVATE_KEY found in v2 tree:"
+            echo "$MATCHES"
+            echo "See docs/security-v2.md §S1.1 — v2 has no operator keys."
+            exit 1
+          fi
+          echo "No OPERATOR_PRIVATE_KEY references in v2 tree."

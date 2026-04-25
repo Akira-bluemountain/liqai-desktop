@@ -1,0 +1,49 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "LiqAI",
+  "version": "0.1.0",
+  "identifier": "app.liqai.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev:next",
+    "beforeBuildCommand": "npm run build:next",
+    "devUrl": "http://localhost:3030",
+    "frontendDist": "../out"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "LiqAI",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 960,
+        "minHeight": 640,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "theme": "Dark"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' https://api.coingecko.com https://*.alchemy.com https://*.infura.io https://relay.gelato.digital https://api.gelato.digital https://*.zerodev.app https://api.pimlico.io https://bridge.walletconnect.org https://*.walletconnect.com https://*.walletconnect.org https://explorer-api.walletconnect.com wss://*.walletconnect.com wss://*.walletconnect.org wss://relay.walletconnect.org https://rpc.ankr.com https://eth.llamarpc.com https://cloudflare-eth.com https://api.thegraph.com https://gateway-arbitrum.network.thegraph.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; font-src 'self' data:; frame-src 'none'; object-src 'none'",
+      "dangerousDisableAssetCspModification": false
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "Finance",
+    "shortDescription": "AI-powered non-custodial Uniswap V3 LP management",
+    "longDescription": "LiqAI is a non-custodial desktop app that manages your Uniswap V3 LP positions with AI-optimised ranges. Your funds and keys never leave your wallet.",
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    }
+  },
+  "plugins": {}
+}

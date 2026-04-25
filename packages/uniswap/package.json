@@ -1,0 +1,31 @@
+{
+  "name": "@liqai/uniswap",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Uniswap V3 direct-interaction helpers for user-owned LP NFTs (non-custodial)",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@liqai/ai": "0.1.0",
+    "ethers": "6.13.4",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.1",
+    "typescript": "5.6.3",
+    "vitest": "2.1.9"
+  }
+}

@@ -1,0 +1,32 @@
+[package]
+name = "liqai-desktop"
+version = "0.1.0"
+description = "LiqAI — non-custodial AI-powered Uniswap V3 LP management"
+authors = ["LiqAI contributors"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "liqai_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "=2.5.6", features = [] }
+
+[dependencies]
+# Pin exact versions for supply-chain predictability (docs/security-v2.md S2.2).
+# All tauri crates are from the canonical @tauri-apps publisher.
+serde = { version = "=1.0.210", features = ["derive"] }
+serde_json = "=1.0.128"
+tauri = { version = "=2.10.3", features = [] }
+tauri-plugin-shell = "=2.3.5"
+tauri-plugin-sql = { version = "=2.4.0", features = ["sqlite"] }
+# tauri-plugin-stronghold added in the session-key phase (requires argon2 setup)
+thiserror = "=1.0.64"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

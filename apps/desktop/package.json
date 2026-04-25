@@ -1,0 +1,53 @@
+{
+  "name": "@liqai/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LiqAI desktop app — Tauri + Next.js UI",
+  "scripts": {
+    "dev:next": "next dev -p 3030",
+    "build:next": "next build",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "next lint --dir src",
+    "lint:hooks": "eslint --no-eslintrc --config .eslintrc.hooks.json --ext .ts,.tsx --max-warnings 0 src",
+    "phase5:preflight": "node --experimental-strip-types --no-warnings scripts/phase5-preflight.mts",
+    "phase5:session-diagnostic": "node --experimental-strip-types --no-warnings scripts/phase5-session-state-diagnostic.mts"
+  },
+  "dependencies": {
+    "@liqai/ai": "0.1.0",
+    "@liqai/automation": "0.1.0",
+    "@liqai/uniswap": "0.1.0",
+    "@tanstack/react-query": "5.99.0",
+    "@tauri-apps/api": "2.10.1",
+    "@tauri-apps/plugin-sql": "2.4.0",
+    "@zxcvbn-ts/core": "3.0.4",
+    "@zxcvbn-ts/language-common": "3.0.4",
+    "@zxcvbn-ts/language-en": "3.0.2",
+    "@zerodev/ecdsa-validator": "5.4.9",
+    "@zerodev/permissions": "5.6.3",
+    "@zerodev/sdk": "5.5.10",
+    "ethers": "6.13.4",
+    "next": "14.2.35",
+    "permissionless": "0.3.5",
+    "qrcode": "1.5.4",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "viem": "2.47.14",
+    "wagmi": "2.19.5",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.10.1",
+    "@types/node": "22.10.1",
+    "@types/qrcode": "1.5.6",
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "eslint": "8.57.1",
+    "eslint-config-next": "14.2.35",
+    "typescript": "5.6.3"
+  }
+}

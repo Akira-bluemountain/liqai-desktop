@@ -1,0 +1,80 @@
+# Dependencies
+node_modules/
+.turbo/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Tauri build artifacts
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/schemas/
+apps/desktop/src-tauri/Cargo.lock.bak
+
+# AI models (large files)
+models/*.pt
+models/*.pth
+models/*.onnx
+
+# Environment & secrets - SECURITY CRITICAL
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+private-key*
+keystore/
+
+# Tauri signing keys — MUST NEVER be committed
+apps/desktop/src-tauri/signing/
+updater-private.key
+*.tauri.key
+tauri-update-private-key
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test & coverage
+coverage/
+.nyc_output/
+htmlcov/
+*.tsbuildinfo
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+tmp/
+temp/
+
+# Local SQLite databases (per-user app data, never committed)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Tauri release artefacts (built locally, distributed via Releases)
+apps/desktop/src-tauri/target/release/bundle/
+*.dmg
+*.app.tar.gz
+
+# macOS file conflicts (Cloud-sync / iCloud / network share artefacts)
+* 2.*
+* 3.*
+*\ 2.*
+*\ 3.*
+
+# Internal distribution drafts (LINE announcements, invitee tracker, etc.)
+# — kept local for the project maintainer, not shipped to the public repo.
+distribution/

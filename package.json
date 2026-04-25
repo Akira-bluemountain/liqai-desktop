@@ -1,0 +1,30 @@
+{
+  "name": "liqai-monorepo",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "npm@10.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean",
+    "test:ai": "cd packages/ai && npx vitest run",
+    "test:uniswap": "cd packages/uniswap && npx vitest run",
+    "test:automation": "cd packages/automation && npx vitest run",
+    "test:all": "npm run test:ai && npm run test:uniswap && npm run test:automation"
+  },
+  "devDependencies": {
+    "turbo": "2.9.6",
+    "typescript": "5.6.3",
+    "prettier": "3.4.1",
+    "eslint": "8.57.1"
+  }
+}
