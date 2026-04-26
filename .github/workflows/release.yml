@@ -129,12 +129,22 @@ jobs:
           retention-days: 30
 
       - name: Publish to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        # Fires for both push-tag triggers AND workflow_dispatch with a tag input.
+        # The earlier `startsWith(github.ref, 'refs/tags/v')` form silently
+        # skipped on workflow_dispatch because github.ref is the dispatching
+        # branch (refs/heads/main), not the tag — see CHANGELOG Learnings #10.
+        if: |
+          (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+          (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.tag, 'v'))
         uses: softprops/action-gh-release@v2
         with:
+          # Without an explicit tag_name, softprops uses github.ref_name which is
+          # `main` under workflow_dispatch and would create a release on the wrong
+          # ref. Pin to the input tag when present, fall back to ref_name on push.
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           files: |
             release-out/*.dmg
             release-out/checksums.txt
           draft: false
-          prerelease: ${{ contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
+          prerelease: ${{ contains(github.event.inputs.tag, '-beta') || contains(github.event.inputs.tag, '-rc') || contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
           generate_release_notes: false   # release notes are authored manually per docs/CHANGELOG-security.md cycle
