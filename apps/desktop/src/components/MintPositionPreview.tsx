@@ -17,8 +17,8 @@
  */
 
 import { useMemo, useState } from 'react';
-import { parseUnits, type Address } from 'viem';
-import { useAccount, useChainId } from 'wagmi';
+import { parseUnits, type Address, type PublicClient } from 'viem';
+import { useAccount, useChainId, usePublicClient } from 'wagmi';
 import {
   sqrtPriceX96ToPrice,
   usdRangeToPoolTickRange,
@@ -40,6 +40,7 @@ const MAX_USDC_PREVIEW = 1_000_000;
 export function MintPositionPreview() {
   const { address: eoaAddress, isConnected } = useAccount();
   const chainId = useChainId();
+  const publicClient = usePublicClient();
   const { data: quote, isLoading, error, refetch } = useMintQuote();
   const { data: poolState, error: poolError } = useUsdcWethPoolState();
   const { address: saAddress, isDeployed: saDeployed } = useKernelAccount();
@@ -211,6 +212,10 @@ export function MintPositionPreview() {
                 <button
                   onClick={async () => {
                     if (!kernelReady) return;
+                    if (!publicClient) {
+                      alert('Public RPC client not available — cannot prepare mint.');
+                      return;
+                    }
                     try {
                       const client = await getClient();
                       const usdcAmountRaw = parseUnits(usdcInput.trim(), poolState.token0Decimals);
@@ -230,6 +235,7 @@ export function MintPositionPreview() {
                       });
                       setMintInput({
                         kernelClient: client,
+                        publicClient: publicClient as PublicClient,
                         eoaAddress: eoaAddress as Address,
                         smartAccountAddress: saAddress,
                         poolAddress: poolState.poolAddress,

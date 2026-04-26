@@ -32,9 +32,11 @@
 import {
   decodeEventLog,
   encodeFunctionData,
+  formatEther,
   parseAbi,
   type Address,
   type Hex,
+  type PublicClient,
 } from 'viem';
 import {
   NONFUNGIBLE_POSITION_MANAGER_ABI,
@@ -59,6 +61,7 @@ const ERC20_ABI_VIEM = parseAbi(ERC20_ABI);
 
 export interface MintExecutionInput {
   readonly kernelClient: KernelClient;
+  readonly publicClient: PublicClient;
   readonly eoaAddress: Address;
   readonly smartAccountAddress: Address;
   readonly poolAddress: Address;
@@ -75,6 +78,16 @@ export interface MintExecutionInput {
   readonly wethAmountRaw: bigint;
   readonly slippageBps: number;
 }
+
+/**
+ * Hard-floor safety margin reserved for the userOp's own gas on top of the
+ * WETH wrap value. Set conservatively low (0.005 ETH) so we only reject mints
+ * that are CERTAIN to fail; the UI separately surfaces a softer "0.02 ETH gas
+ * buffer" recommendation for normal sizing. Empirical floor: a typical mint
+ * userOp uses ~380k gas; at 50 gwei that's ~0.019 ETH worst-case, but at the
+ * 0.1-1 gwei prevailing on mainnet it's <$1.
+ */
+const PREFLIGHT_GAS_RESERVE_WEI: bigint = 5_000_000_000_000_000n; // 0.005 ETH
 
 export interface MintExecutionResult {
   readonly userOpHash: Hex;
@@ -169,7 +182,37 @@ export async function executeMint(
     },
   ];
 
-  // ── 2. Submit the userOp ─────────────────────────────────────────
+  // ── 2. Pre-flight: SA must have enough native ETH to wrap + pay gas ──
+  // Without this guard, an under-funded SA produces a deterministic silent
+  // revert: WETH9.deposit{value: …}() fails at the EVM `CALL` opcode level
+  // (insufficient balance for value transfer), the call returns `success=0`
+  // with empty returndata, Kernel V3.1's batch executor reverts the whole
+  // batch with `revert(0,0)`, and EntryPoint v0.7 records `success: false`
+  // WITHOUT emitting `UserOperationRevertReason` (its emit is gated by
+  // `result.length > 0`). The user sees "userOp reverted on-chain" with no
+  // diagnosable reason, the SA loses gas to a no-op tx, and ETH is still
+  // safe but the mint flow is unrecoverable without diagnosing on-chain
+  // call traces. See liqai-internal CHANGELOG-security.md "Stage 2 §3.2.1
+  // mint pre-flight" entry for the original incident (2026-04-26, 4 silent
+  // reverts before this guard landed).
+  const saEthBalance = await input.publicClient.getBalance({
+    address: input.smartAccountAddress,
+  });
+  const required = input.wethAmountRaw + PREFLIGHT_GAS_RESERVE_WEI;
+  if (saEthBalance < required) {
+    const have = formatEther(saEthBalance);
+    const want = formatEther(required);
+    const wrap = formatEther(input.wethAmountRaw);
+    const reserve = formatEther(PREFLIGHT_GAS_RESERVE_WEI);
+    throw new Error(
+      `Smart Account has insufficient ETH for this mint. ` +
+        `SA ${input.smartAccountAddress} holds ${have} ETH but the mint requires ` +
+        `${want} ETH (${wrap} ETH to wrap into WETH + ${reserve} ETH gas reserve). ` +
+        `Top up the SA from your EOA before retrying, or reduce the position size.`,
+    );
+  }
+
+  // ── 3. Submit the userOp ─────────────────────────────────────────
   // Pimlico's `eth_estimateUserOperationGas` simulator has trouble with
   // ZeroDev Kernel V3.1's combined deploy + multi-call batch — it reverts
   // with "VerificationGasLimit reverted during simulation" because the
