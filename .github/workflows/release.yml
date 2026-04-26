@@ -82,9 +82,12 @@ jobs:
       - name: Build Tauri bundle (arm64 .dmg)
         run: cd apps/desktop && npm run tauri:build -- --target aarch64-apple-darwin
         env:
-          # No notarisation in v0.1.x. Ad-hoc sign happens after build.
+          # No notarisation in v0.1.x. Ad-hoc sign during bundle (codesign --sign -)
+          # via APPLE_SIGNING_IDENTITY=-. The empty-string variant tried previously
+          # failed with "The specified item could not be found in the keychain"
+          # because Tauri passes the value verbatim to codesign.
           TAURI_SIGNING_PRIVATE_KEY: ''
-          APPLE_SIGNING_IDENTITY: ''
+          APPLE_SIGNING_IDENTITY: '-'
 
       - name: Ad-hoc sign LiqAI.app
         run: |
