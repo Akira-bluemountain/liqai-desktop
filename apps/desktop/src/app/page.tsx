@@ -19,6 +19,7 @@ import { WalletStatus } from '../components/WalletStatus';
 import { SmartAccountStatus } from '../components/SmartAccountStatus';
 import { MintPositionPreview } from '../components/MintPositionPreview';
 import { SessionKeyPanel } from '../components/SessionKeyPanel';
+import { SaRecoveryPanel } from '../components/SaRecoveryPanel';
 import { RebalanceBotPanel } from '../components/RebalanceBotPanel';
 import { GelatoAutomatePanel } from '../components/GelatoAutomatePanel';
 import { PositionsDashboard } from '../components/PositionsDashboard';
@@ -115,6 +116,7 @@ export default function HomePage() {
       {isConnected && <SessionKeyPanel />}
       {isConnected && <RebalanceBotPanel />}
       {isConnected && <GelatoAutomatePanel />}
+      {isConnected && <SaRecoveryPanel />}
       {isConnected && <ActivityLog />}
 
       {isConnected && (
